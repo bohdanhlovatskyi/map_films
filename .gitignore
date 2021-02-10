@@ -1,0 +1,4 @@
+venv
+locations.list
+__pycache__
+.DS_Store
