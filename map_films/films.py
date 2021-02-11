@@ -1,8 +1,6 @@
 import pandas as pd
 import re
 import folium
-import requests
-import urllib.parse
 from typing import List, Union
 
 
@@ -16,54 +14,17 @@ def get_info_from_user() -> List[Union[List[int], int]]:
                 input('Please enter your location (format: lat, long): \n').rstrip().split(',')))
     return location, year
 
-def get_films(path_to_file: str, user_year: int) -> List[Union[int, str, List[str]]]:
+def read_locations(path_to_file: str) -> List[Union[int, str, List[int]]]:
     '''
-    Converts info from txt file to List like this [name, year, List[location]]
+    Reads info from csv file with films (written using convert dataset module)
     '''
-
-    with open(path_to_file, encoding='utf-8', errors='ignore') as f:
-        data = f.readlines()
-
-    for idx, line in enumerate(data):
-        try:
-            year = int(re.search(r'(\d{4})', line).group())
-        except AttributeError:
-            data[idx] = []
-            continue
-        if year != user_year:
-            data[idx] = []
-            continue
-        title = re.search(r'".+"', line).group()[1:-1]
-        if '{' in line:
-            title += re.search(r'{.+}', line).group()
-            adress = re.search(r'}.[^()]+', line).group().lstrip('}').rstrip()
-            adress = adress.replace('\t', '')
-        else:
-            adress = line.rstrip().split('\t')[-1]
-        try:
-            # this is where a lot of films are skipped, can be improved, I guess
-            # tha's also a place, which takes a lot of time. No, really, a lot.
-            #
-            # there is sense to run this one time and then safe this maybe
-            adress = convert_to_coordinated(adress)
-            data[idx] = (year, title, adress)
-        except IndexError:
-            data[idx] = []
-            continue
-
-    return [elm for elm in data if elm]
-
-def convert_to_coordinated(place: List[str]) -> List[int]:
-    '''
-    '''
-
-    url = 'https://nominatim.openstreetmap.org/search/' + urllib.parse.quote(place) +'?format=json'
-    response = requests.get(url).json()
-
-    return [float(response[0]["lat"]), float(response[0]["lon"])]
-
+    
+    pass
 
 def difference_between_coordinates(films_coord_iter: List[int], user_coordinates_iter: List[int]):
+    '''
+    TODO: should be rewritten (there is how in the task)
+    '''
 
     iterable = zip(films_coord_iter, user_coordinates_iter)
     diffs = []
@@ -78,6 +39,7 @@ def difference_between_coordinates(films_coord_iter: List[int], user_coordinates
 
 def get_points_to_put_on_map(films: List[Union[int, str, List[str]]], user_coordinates: List[int]):
     '''
+    TODO: find out how to delete using iloc (delete year column)
     '''
 
     df = pd.DataFrame(films)
@@ -97,7 +59,11 @@ def create_map(places: List[Union[str, List[str]]]) -> str:
     st_map = folium.Map()
 
     for place in places:
+        # TODO: change this, after I channge get_points_to_put_on_map
         st_map.add_child(folium.Marker(location=place[-1], popup=place[1], icon=folium.Icon()))
     file_name = 'map.html'
     st_map.save(file_name)
     return file_name
+
+if __name__ == '__main__':
+    pass
