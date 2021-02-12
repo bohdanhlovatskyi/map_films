@@ -5,7 +5,6 @@ Should be run only once in order to rewrite dataset
 import re
 import requests
 import urllib
-from functools import lru_cache
 from typing import List, Union, Dict
 
 
