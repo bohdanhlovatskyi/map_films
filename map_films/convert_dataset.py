@@ -5,6 +5,7 @@ Should be run only once in order to rewrite dataset
 import re
 import requests
 import urllib.parse
+from functools import lru_cache
 from typing import List, Union, Dict
 
 
@@ -15,7 +16,7 @@ def write_dataset(path_to_file: str) -> List[Union[int, str, List[str]]]:
     TODO: make it work faster (try without re, find out how to pass geopy.exc.GeocoderQueryError)
     '''
 
-    adresses = {}
+    adresses = crearte_dict_dataset('worldcities.csv')
     with open(path_to_file, encoding='utf-8', errors='ignore') as f:
         data = f.readlines()
 
@@ -23,15 +24,33 @@ def write_dataset(path_to_file: str) -> List[Union[int, str, List[str]]]:
         for idx, line in enumerate(data):
             print(idx)
             year = get_year(line)
-            if not year:
+            adress = get_adress(line)
+            if not year or not adress:
                 continue
             title = get_title(line)
-            adress = get_adress(line)
             try:    
                 lat, lon = get_location(adress, adresses)
-            except TypeError:
+            except TypeError as err:
                 continue
+            print(f'{year}, {title}, {lat}, {lon}\n')
             outfile1.write(f'{year}, {title}, {lat}, {lon}\n')
+
+
+def crearte_dict_dataset(csv_dv: str) -> Dict[str, List[str]]:
+    '''
+    '''
+
+    adresses = {}
+    with open(csv_dv) as f:
+        data = f.readlines()
+
+    for idx, line in enumerate(data):
+        line = line.split(',')
+        line = [line[0], line[2], line[3]]
+        line = [elm.strip('"') for elm in line]
+        adresses[line[0]] = (line[1], line[2])
+    
+    return adresses
 
 
 def get_year(line: str) -> str:
@@ -54,7 +73,14 @@ def get_adress(line: str) -> str:
         adress = re.search(r'}.[^()]+', line).group()
     else:
         adress = line.rstrip().split('\t')[-1]
-    adress = adress.strip('\t}\n')
+    adress = adress.strip('\t}\n').split(', ')
+    if len(adress) == 3:
+        adress = adress[0]
+    else:
+        try:
+            adress = adress[1]
+        except IndexError:
+            return None
 
     return adress
 
@@ -69,7 +95,6 @@ def get_title(line: str) -> str:
 
     return title
 
-
 def get_location(adress: str, adresses: Dict[str, str]) -> List[str]:
     '''
     '''
@@ -82,12 +107,13 @@ def get_location(adress: str, adresses: Dict[str, str]) -> List[str]:
         try:
             coords = response[0]["lat"], response[0]["lon"]
         except IndexError:
+            adresses[adress] = None
             return None
 
         adresses[adress] = coords
-    
+
     return adresses[adress]
 
 
 if __name__ == '__main__':
-    write_dataset('test_loc.list')
+    write_dataset('locations.list')
