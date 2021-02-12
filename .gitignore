@@ -2,3 +2,4 @@ map_films_venv
 locations.list
 __pycache__
 .DS_Store
+*.html
