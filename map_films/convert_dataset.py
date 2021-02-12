@@ -32,7 +32,7 @@ def write_dataset(path_to_file: str) -> List[Union[int, str, List[str]]]:
                 lat, lon = get_location(adress, adresses)
             except TypeError as err:
                 continue
-            print(f'{year}, {title}, {lat}, {lon}\n')
+            # print(f'{year}, {title}, {lat}, {lon}\n')
             outfile1.write(f'{year}, {title}, {lat}, {lon}\n')
 
 
