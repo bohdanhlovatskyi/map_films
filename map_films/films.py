@@ -5,6 +5,7 @@ import math
 import folium
 import urllib
 import requests
+from multiprocessing.dummy import Pool
 from typing import List, Union, Dict
 from random import random
 
@@ -79,7 +80,11 @@ def convert_addresses_to_coords(df: pd.DataFrame) -> pd.DataFrame:
 
     adresses_dict = crearte_dict_dataset('data/worldcities.csv')
     locations_to_process = df['Address'].tolist()
-    locations_to_process = [get_location(location, adresses_dict) for location in locations_to_process]
+    # tried threading to make it wark faster (not really, to be honest)
+    with Pool(5) as pool:
+        locations_to_process = list(pool.map(
+            lambda x: get_location(x, adresses_dict), locations_to_process))
+
     df['Address'] = locations_to_process
     
     df = df.dropna()
@@ -144,6 +149,9 @@ def create_map(places: List[Union[str, List[str]]], user_location: str) -> str:
     return file_name
 
 def main():
+    from time import time
+    start_time = time()
+    
     user_location, year = get_info_from_user()
 
     locations = read_locations('data/locations.csv', year)
@@ -154,4 +162,4 @@ def main():
     places = get_points_to_put_on_map(locations, user_location)
     # print(places)
     file_name = create_map(places, user_location)
-    return f'Your map was succesfully created at {file_name}'
+    print(f'Your map was succesfully created at {file_name}, It has taken {round(time() - start_time, 2)}s. to execute')
