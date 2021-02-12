@@ -26,15 +26,7 @@ def difference_between_coordinates(films_coord_iter: List[int], user_coordinates
     TODO: should be rewritten (there is how in the task)
     '''
 
-    iterable = zip(films_coord_iter, user_coordinates_iter)
-    diffs = []
-    for films_coord, user_coordinates in iterable:
-        diff_in_lon = (abs(films_coord[0]) + abs(user_coordinates[0])) / 2
-        diff_in_len = (abs(films_coord[1]) + abs(user_coordinates[1])) / 2
-        diff = round(diff_in_len + diff_in_lon, 2)
-        diffs.append(diff)
-
-    return diffs
+    pass
 
 
 def get_points_to_put_on_map(films: List[Union[int, str, List[str]]], user_coordinates: List[int]):
