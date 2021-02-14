@@ -15,7 +15,6 @@ def write_dataset(path_to_file: str, write_to_file: str) -> List[Union[int, str,
     TODO: make it work faster (try without re, find out how to pass geopy.exc.GeocoderQueryError)
     '''
 
-    adresses = crearte_dict_dataset('worldcities.csv')
     with open(path_to_file, encoding='utf-8', errors='ignore') as f:
         data = f.readlines()
 
@@ -29,7 +28,7 @@ def write_dataset(path_to_file: str, write_to_file: str) -> List[Union[int, str,
             if not year or not adress or not title:
                 continue
             # print(f'{year}, {title}, {adress}\n')
-            outfile.write(f'{year}| {title}| {adress}\n')
+            outfile.write(f'{year};{title};{adress}\n')
 
 
 def get_year(line: str) -> str:
