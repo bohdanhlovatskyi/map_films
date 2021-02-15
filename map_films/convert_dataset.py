@@ -58,15 +58,18 @@ def get_adress(line: str) -> str:
         except IndexError:
             return None
     adress = adress.strip('\t}\n').split(', ')
-    if len(adress) == 3:
-        adress = adress[0]
-    else:
-        try:
-            adress = adress[1]
-        except IndexError:
-            return None
+    # if len(adress) == 3:
+        # adress = adress[0]
+    # else:
+        # try:
+            # adress = adress[1]
+        # except IndexError:
+            # return None
 
-    return adress
+    if 'USA' not in adress:
+        return None
+
+    return ', '.join(adress)
 
 
 def get_title(line: str) -> str:
@@ -87,4 +90,4 @@ def get_title(line: str) -> str:
 
 
 if __name__ == '__main__':
-    write_dataset('locations.list', 'outfile2.csv')
+    write_dataset('data/locations.list', 'data/outfile2.csv')

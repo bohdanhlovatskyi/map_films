@@ -1,12 +1,17 @@
+'''
+'''
+
 import pandas as pd
 import numpy as np
 import math
 import folium
+import folium.plugins as plg
 import urllib
 import requests
+import reverse_geocoder as rg
 from multiprocessing.dummy import Pool
 from typing import List, Union, Dict, Tuple
-from random import random
+from map_films.optimisations import get_adj_states_dict
 
 
 def get_info_from_user() -> List[Union[List[int], int]]:
@@ -16,32 +21,59 @@ def get_info_from_user() -> List[Union[List[int], int]]:
 
     year = int(input('Please enter a year you would like to have a map for: \n').rstrip())
     location = input('Please enter your location (city or etc.): \n').rstrip()
+    fast = input('If you want execute the programme in fast mode, write "y", otherwise, press Enter\n')
+    if fast: fast = True
+    else: fast = False
     coordinates = get_location(location, {})
     if coordinates == 'nan':
         return False
-    print('Wait for your map!')
-    
-    return coordinates, year
+
+    return coordinates, year, fast
 
 
-def read_locations(path_to_file: str, user_year: int) -> List[Union[int, str, List[int]]]:
+def read_locations(path_to_file: str, user_year: int, user_coordinates, fast: bool=True) -> List[Union[int, str, List[int]]]:
     '''
     Reads info from csv file with films (written using convert dataset module)
     '''
     
-    
+    state = rg.search(user_coordinates)[0]['admin1'] # this returns state name
+
     with open(path_to_file) as f:
         data = f.readlines()
 
-    for idx, line in enumerate(data):
+    # list of adjacent states and the atate itself (where closetst locations will be searched)
+    # if none will be found, then there is no locations nearby
+    adj_states_set = get_adj_states_dict()[state]
+    adj_states_set.add(state)
+
+    cities = set(create_dict_dataset().keys())
+
+    parsed_data = []
+    for line in data:
         line = line.rstrip().split(';')
-        line[0] = int(line[0])
-        data[idx] = line
 
+        year = int(line[0])
+        title = line[1]
 
-    df = pd.DataFrame(data)
-    df = df.drop(df.columns[3:], axis=1)
-    df.columns = ['Year', 'Title', 'Address']
+        line[-1] = line[-1].split(', ')
+        # if len(line[-1]) means that only state and country is specified, which is not
+        # precise enough, therefore we can skeep it
+        if len(line[-1]) < 3:
+            continue
+        # checks whether state is one of adjacent (obviously that the closest ones are somewhere there)
+        if line[-1][-2] not in adj_states_set:
+            continue
+        
+        state = line[-1][-2]
+        city = line[-1][-3]
+        adress = f'{state}, {city}'
+
+        parsed_data.append([year, title, adress])
+
+    if fast:
+        parsed_data = [location for location in parsed_data if location[-1] in cities]
+    
+    df = pd.DataFrame(parsed_data, columns = ['Year', 'Title', 'Address'])
 
     return df[df['Year'] == user_year]
 
@@ -65,14 +97,13 @@ def get_location(adress: str, adresses: Dict[str, str]) -> List[str]:
 
     return adresses[adress]
 
-
 def create_dict_dataset() -> Dict[str, List[str]]:
     '''
     '''
 
     adresses = pd.read_csv('data/uscities.csv')
     adresses = adresses[['city', 'state_name', 'lat', 'lng']]
-    city_locations = adresses['city'].values.tolist()
+    city_locations = [f'{state}, {city}' for state, city in zip(adresses['state_name'].values.tolist(), adresses['city'].values.tolist())]
     coordinates = [(float(coord[0]), float(coord[1])) for coord in \
                     zip(adresses['lat'].values.tolist(), adresses['lng'].values.tolist())]
     adresses = {location: coordinate for location, coordinate in zip(city_locations, coordinates)}
@@ -84,7 +115,9 @@ def convert_addresses_to_coords(df: pd.DataFrame) -> pd.DataFrame:
     '''
 
     adresses_dict = create_dict_dataset()
+
     locations_to_process = df['Address'].tolist()
+
     # tried threading to make it wark faster (not really, to be honest)
     with Pool(5) as pool:
         locations_to_process = list(pool.map(
@@ -111,6 +144,7 @@ def difference_between_coordinates(films_coord_iter: List[float], user_coordinat
         sqrt_expr = math.sqrt(trig_expr)
         distance = 2 * EARTH_RADIUS * math.asin(sqrt_expr)
         distances.append(distance)
+        # distances.append(haversine(films_coord_iter[i], user_coordinates_iter[i]))
 
     return distances
 
@@ -122,23 +156,30 @@ def get_points_to_put_on_map(films: pd.DataFrame, user_coordinates: List[int]):
     films_coord_iter = [(float(elm[0]), float(elm[1])) for elm in films_coord_iter]
 
     films['Diff'] = difference_between_coordinates(films_coord_iter, user_coordinates_lst)
+    del films['Year']
+
     films.sort_values('Diff')
-    films = films.drop(['Diff', 'Year'], axis=1)
+    del films['Diff']
+    
+    return films.head(10).values.tolist()
 
-    return films.head(4).values.tolist()
-
-def get_income_layer(user_year):
+def get_income_layer(user_year: int) -> folium.Choropleth:
+    '''
+    Creates a layer for folium map via folium Choropleth class.
+    Shows income per household in each state per year (from range 1984-20??)
+    '''
 
     df = pd.read_csv('data/household_median_income_2017.csv')
-    df = df[['State', str(user_year)]]
-    incomes = df[str(user_year)].values.tolist()
+    year = str(user_year)
+    df = df[['State', year]]
+    incomes = df[year].values.tolist()
     incomes = [float('.'.join(income.split(','))) for income in incomes]
-    df[str(user_year)] = incomes
+    df[year] = incomes
 
     chor = folium.Choropleth(
         geo_data='data/us_states.json',
         data=df,
-        columns=['State', str(user_year)],
+        columns=['State', year],
         key_on='feature.properties.name',
         fill_color ='YlGnBu',
         fill_opacity = 0.7,
@@ -159,7 +200,8 @@ def create_map(places: List[Union[str, List[str]]], user_location: Tuple[str], u
     Returns file name.
     '''
 
-    places = [(place[0], tuple(map(lambda x: float(x) + random(), place[-1]))) for place in places]
+    places = [[place[0],(float(place[1][0]), float(place[1][1]))] for place in places]
+
     # creating first parent layer
     st_map = folium.Map(
         zoom_start=7,
@@ -167,21 +209,17 @@ def create_map(places: List[Union[str, List[str]]], user_location: Tuple[str], u
         tiles='stamenwatercolor',
         prefer_canvas=True,
         overlay=True)
-    # folium.TileLayer(tiles='http://tile.stamen.com/watercolor/{z}/{x}/{y}.jpg', attr='toner-wc', overlay=False).add_to(st_map)
-
-    folium.TileLayer("Stamen Toner").add_to(st_map)
 
     get_income_layer(user_year).add_to(st_map)
-   
-    popups_layer = folium.FeatureGroup()
-    user_loc = folium.Marker(location=user_location, popup='Your location', icon=folium.Icon(color='orange'))
-    popups_layer.add_child(user_loc)
-    for place in places:
-        popups_layer.add_child(folium.Marker(location=place[1], popup=place[0], icon=folium.Icon()))
-        folium.PolyLine([place[1], user_location], color='red').add_to(st_map)
 
-    # merging data layers
-    popups_layer.add_to(st_map)
+    cluster = plg.MarkerCluster().add_to(st_map)
+    folium.Marker(location=user_location, popup='Your location', icon=folium.Icon(color='orange')).add_to(st_map)
+    for place in places:
+        try:
+            folium.Marker(location=place[1], popup=place[0], icon=folium.Icon()).add_to(cluster)
+        except RecursionError:
+            continue
+        folium.PolyLine([place[1], user_location], color='red').add_to(st_map)
 
     file_name = 'map.html'
     st_map.save(file_name)
@@ -196,11 +234,11 @@ def main():
     from time import time
     start_time = time()
     
-    user_location, year = get_info_from_user()
+    user_location, year, fast = get_info_from_user()
     if not user_location or not year:
         return 'Passes arhumants aren\'t good'
 
-    locations = read_locations('data/locations.csv', year)
+    locations = read_locations('data/locations.csv', year, user_location, fast)
     locations = convert_addresses_to_coords(locations)
     places = get_points_to_put_on_map(locations, user_location)
 
