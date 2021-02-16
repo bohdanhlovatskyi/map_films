@@ -22,7 +22,7 @@ def get_info_from_user() -> List[Union[int, str, List[str]]]:
     '''
 
     year = int(input('Please enter a year you would like to have a map for: \n').rstrip())
-    if not 1984 <= year <= 2017:
+    if not (1984 <= year <= 2017):
         print('You should specify film from range (1984-2017)')
         return False
     location = input('Please enter your location (city or etc.): \n').rstrip()
@@ -64,21 +64,17 @@ def read_locations(path_to_file: str, user_year: int,
         line = line.rstrip().split(';')
 
         year = int(line[0])
+        if year != user_year:
+            continue
         title = line[1]
 
         line[-1] = line[-1].split(', ')
         # if len(line[-1]) means that only state and country is specified, which is not
         # precise enough, therefore we can skeep it
-        if len(line[-1]) < 3:
+        if len(line[-1]) < 3 or line[-1][-2] not in adj_states_set:
             continue
-        # checks whether state is one of adjacent
-        # (obviously that the closest ones are somewhere there)
-        if line[-1][-2] not in adj_states_set:
-            continue
-
-        state = line[-1][-2]
-        city = line[-1][-3]
-        adress = f'{state}, {city}'
+        # gets state and city from line, which are always in the same order
+        adress = f'{line[-1][-2]}, {line[-1][-3]}'
 
         parsed_data.append([year, title, adress])
 
@@ -88,7 +84,7 @@ def read_locations(path_to_file: str, user_year: int,
 
     locations_df = pd.DataFrame(parsed_data, columns = ['Year', 'Title', 'Address'])
 
-    return locations_df[locations_df['Year'] == user_year]
+    return locations_df
 
 
 def get_location(adress: str, adresses: Dict[str, Tuple[str]]={}) -> List[str]:
@@ -229,11 +225,9 @@ def create_map(places: List[Union[str, List[str]]], user_location: Tuple[str], u
     folium.Marker(location=user_location,
                 popup='Your location',
                 icon=folium.Icon(color='orange')).add_to(st_map)
+
     for place in places:
-        try:
-            folium.Marker(location=place[1], popup=place[0], icon=folium.Icon()).add_to(cluster)
-        except RecursionError:
-            continue
+        folium.Marker(location=place[1], popup=place[0], icon=folium.Icon()).add_to(cluster)
         folium.PolyLine([place[1], user_location], color='red').add_to(lines)
 
     file_name = 'map.html'
