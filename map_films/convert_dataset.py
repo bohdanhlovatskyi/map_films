@@ -2,23 +2,19 @@
 Should be run only once in order to rewrite dataset
 '''
 
+from typing import List, Union
 import re
-import requests
-import urllib
-from typing import List, Union, Dict
 
 
 def write_dataset(path_to_file: str, write_to_file: str) -> List[Union[int, str, List[str]]]:
     '''
     Converts info from txt file to List like this [title, year, List[location]]
-
-    TODO: make it work faster (try without re, find out how to pass geopy.exc.GeocoderQueryError)
     '''
 
-    with open(path_to_file, encoding='utf-8', errors='ignore') as f:
-        data = f.readlines()
+    with open(path_to_file, encoding='utf-8', errors='ignore') as file:
+        data = file.readlines()
 
-    
+
     with open(write_to_file, 'a') as outfile:
         for idx, line in enumerate(data):
             print(idx)
@@ -33,6 +29,7 @@ def write_dataset(path_to_file: str, write_to_file: str) -> List[Union[int, str,
 
 def get_year(line: str) -> str:
     '''
+    Gets year from string
     '''
 
     try:
@@ -45,6 +42,7 @@ def get_year(line: str) -> str:
 
 def get_adress(line: str) -> str:
     '''
+    Gets adress from string
     '''
 
     if '{' in line:
@@ -58,14 +56,8 @@ def get_adress(line: str) -> str:
         except IndexError:
             return None
     adress = adress.strip('\t}\n').split(', ')
-    # if len(adress) == 3:
-        # adress = adress[0]
-    # else:
-        # try:
-            # adress = adress[1]
-        # except IndexError:
-            # return None
 
+    # to make it work only for USA
     if 'USA' not in adress:
         return None
 
@@ -74,6 +66,7 @@ def get_adress(line: str) -> str:
 
 def get_title(line: str) -> str:
     '''
+    Gets title from string
     '''
 
     try:
@@ -90,4 +83,5 @@ def get_title(line: str) -> str:
 
 
 if __name__ == '__main__':
+    # rewrites dataset
     write_dataset('data/locations.list', 'data/outfile2.csv')
